@@ -1,0 +1,36 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "train 4dgs 10frames",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "feature_4dgs.train",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--name",
+                "dinov3_vitl16-elementwise",
+                "--embed_dim",
+                "48",
+                "-s",
+                "data/coffee_martini/frame1",
+                "data/coffee_martini/frame2",
+                "-d",
+                "output/coffee_martini/semantic/frame1",
+                "output/coffee_martini/semantic/refine/masked-propagate-dot-cotracker3/frame2",
+                "-i",
+                "1",
+                "--mode",
+                "base",
+                "-l",
+                "output/coffee_martini/frame1/point_cloud/iteration_10000/point_cloud.ply",
+                "output/coffee_martini/refine/masked-propagate-dot-cotracker3/frame2/point_cloud/iteration_1000/point_cloud.ply",
+                "--no_load_semantic",
+                "--empty_cache_every_step",
+                "--no_image_mask",
+                "--no_depth_data",
+            ]
+        },
+    ]
+}
