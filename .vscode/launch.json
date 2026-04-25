@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "train 4dgs 10frames",
+            "name": "train 4dgs",
             "type": "debugpy",
             "request": "launch",
             "module": "feature_4dgs.train",
