@@ -111,12 +111,12 @@ if __name__ == "__main__":
     parser.add_argument("--sh_degree", default=3, type=int)
     parser.add_argument("--name", required=True, type=str)
     parser.add_argument("--embed_dim", required=True, type=int)
-    parser.add_argument("-s", "--source", required=True, type=str)
-    parser.add_argument("-d", "--destination", required=True, type=str)
+    parser.add_argument("-s", "--sources", required=True, nargs='+', type=str)
+    parser.add_argument("-d", "--destinations", required=True, nargs='+', type=str)
     parser.add_argument("-i", "--iteration", default=30000, type=int)
-    parser.add_argument("-l", "--load_ply", default=None, type=str)
+    parser.add_argument("-l", "--load_plys", default=None, nargs='+', type=str)
     parser.add_argument("--load_decoder", default=None, type=str)
-    parser.add_argument("--load_camera", default=None, type=str)
+    parser.add_argument("--load_cameras", default=None, nargs='+', type=str)
     parser.add_argument("--no_image_mask", action="store_true")
     parser.add_argument("--no_depth_data", action="store_true")
     parser.add_argument("--no_load_semantic", action="store_true")
@@ -129,22 +129,29 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--option", default=[], action='append', type=str)
     parser.add_argument("-e", "--option_extractor", default=[], action='append', type=str)
     args = parser.parse_args()
-    save_cfg_args(args.destination, args.sh_degree, args.source)
+    assert len(args.destinations) == len(args.sources), "len(destinations) must equal len(sources)"
+    if args.load_plys is not None:
+        assert len(args.load_plys) == len(args.sources), "len(load_plys) must equal len(sources)"
+    if args.load_cameras is not None:
+        assert len(args.load_cameras) == len(args.sources), "len(load_cameras) must equal len(sources)"
+    for destination, source in zip(args.destinations, args.sources):
+        save_cfg_args(destination, args.sh_degree, source)
     torch.autograd.set_detect_anomaly(False)
 
     configs = {o.split("=", 1)[0]: eval(o.split("=", 1)[1]) for o in args.option}
     extractor_configs = {o.split("=", 1)[0]: eval(o.split("=", 1)[1]) for o in args.option_extractor}
-    dataset, gaussians, trainer = prepare_training(
+    datasets, gaussians_list, trainers = prepare_training(
         name=args.name, sh_degree=args.sh_degree, mode=args.mode,
-        source=args.source, embed_dim=args.embed_dim,
+        sources=args.sources, embed_dim=args.embed_dim,
         device=args.device, dataset_cache_device=args.dataset_cache_device,
         trainable_camera="camera" in args.mode,
-        load_ply=args.load_ply, load_decoder=args.load_decoder, load_camera=args.load_camera,
+        load_plys=args.load_plys, load_decoder=args.load_decoder, load_cameras=args.load_cameras,
         load_mask=not args.no_image_mask, load_depth=not args.no_depth_data, load_semantic=not args.no_load_semantic,
         preload_cache=not args.no_preload_dataset_cache, configs=configs, extractor_configs=extractor_configs)
-    dataset.save_cameras(os.path.join(args.destination, "cameras.json"))
+    for dataset in datasets:
+        dataset.save_cameras(os.path.join(args.destinations[0], "cameras.json"))
     torch.cuda.empty_cache()
     training(
-        dataset=dataset, gaussians=gaussians, trainer=trainer,
-        destination=args.destination, iteration=args.iteration, save_iterations=args.save_iterations,
-        device=args.device, empty_cache_every_step=args.empty_cache_every_step)
+        datasets=datasets, gaussians_list=gaussians_list, trainers=trainers,
+        destinations=args.destinations, iteration=args.iteration, save_iterations=args.save_iterations,
+        empty_cache_every_step=args.empty_cache_every_step)
