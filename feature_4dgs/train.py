@@ -19,7 +19,7 @@ from .prepare import prepare_datasets_and_decoder, prepare_gaussians_sequence
 def prepare_training(
         name: str, sh_degree: int, mode: str, sources: List[str], embed_dim: int,
         device: str, dataset_cache_device: str = None,
-        trainable_camera: bool = False, load_plys: List[str] = None, load_cameras: List[str] = None,
+        trainable_camera: bool = False, load_plys: List[str] = None, load_decoder: str = None, load_cameras: List[str] = None,
         load_mask=True, load_depth=True, load_semantic: bool = True,
         preload_cache: bool = True, configs={}, extractor_configs={},
 ) -> Tuple[SequenceFeatureCameraDataset, List[SemanticGaussianModel], List[AbstractTrainer]]:
@@ -35,8 +35,7 @@ def prepare_training(
     )
     gaussians_list = prepare_gaussians_sequence(
         decoder=decoder, sh_degree=sh_degree, sources=sources, datasets=datasets, device=device,
-        trainable_camera=trainable_camera, load_plys=load_plys, load_semantic=load_semantic,
-    )
+        trainable_camera=trainable_camera, load_plys=load_plys, load_semantic=load_semantic, load_decoder=load_decoder,)
     trainers = [prepare_trainer(
         gaussians=gaussians, dataset=dataset, mode=mode,
         trainable_camera=trainable_camera, configs=configs,

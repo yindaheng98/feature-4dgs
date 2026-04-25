@@ -58,6 +58,7 @@ def prepare_gaussians_sequence(
         decoder: AbstractTrainableDecoder, sh_degree: int,
         sources: List[str], datasets: SequenceFeatureCameraDataset, device: str,
         trainable_camera: bool = False, load_plys: List[str] = None, load_semantic: bool = True,
+        load_decoder: str = None,
 ) -> List[SemanticGaussianModel]:
     """Prepare one :class:`SemanticGaussianModel` per timestep, ensuring a
     consistent decoder initialisation across all frames.
@@ -74,6 +75,7 @@ def prepare_gaussians_sequence(
         decoder=decoder, sh_degree=sh_degree, source=sources[0], dataset=datasets[0],
         device=device, trainable_camera=trainable_camera,
         load_ply=load_plys[0], load_semantic=load_semantic,
+        load_decoder=load_decoder,
     )
     gaussians_list: List[SemanticGaussianModel] = [first_gaussians]
 
