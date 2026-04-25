@@ -14,8 +14,6 @@ class AbstractSequenceFeatureExtractor(AbstractFeatureExtractor):
     perform cross-timestep batching, caching or scheduling.
     """
 
-    def extract_sequence_all(
-            self, sequences: Iterable[Iterable[torch.Tensor]],
-    ) -> Iterator[Iterator[torch.Tensor]]:
+    def extract_sequence_all(self, sequences: Iterable[Iterable[torch.Tensor]]) -> Iterator[Iterator[torch.Tensor]]:
         for sequence in sequences:
             yield self.extract_all(sequence)
