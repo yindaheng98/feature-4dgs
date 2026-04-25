@@ -84,9 +84,8 @@ def prepare_gaussians_sequence(
         for source, dataset, load_ply in zip(sources[1:], datasets[1:], load_plys[1:]):
             load_decoder = tmp_decoder_path if (not load_ply or not load_semantic) else None
             gaussians = prepare_gaussians(
-                decoder=decoder, sh_degree=sh_degree, source=source, dataset=dataset,
-                device=device, trainable_camera=trainable_camera,
-                load_ply=load_ply, load_semantic=load_semantic,
+                decoder=decoder, sh_degree=sh_degree, source=source, dataset=dataset, device=device,
+                trainable_camera=trainable_camera, load_ply=load_ply, load_semantic=load_semantic,
                 load_decoder=load_decoder,
             )
             gaussians_list.append(gaussians)
