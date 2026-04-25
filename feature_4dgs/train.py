@@ -44,50 +44,63 @@ def prepare_training(
     return datasets, gaussians_list, trainers
 
 
-def training(dataset: CameraDataset, gaussians: GaussianModel, trainer: AbstractTrainer, destination: str, iteration: int, save_iterations: List[int], empty_cache_every_step=False):
-    shutil.rmtree(os.path.join(destination, "point_cloud"), ignore_errors=True)  # remove the previous point cloud
+def training(datasets: SequenceFeatureCameraDataset, gaussians_list: List[SemanticGaussianModel], trainers: List[AbstractTrainer], destinations: List[str], iteration: int, save_iterations: List[int], empty_cache_every_step=False):
+    assert len(datasets) == len(gaussians_list) == len(trainers) == len(destinations), \
+        "datasets, gaussians_list, trainers and destinations must have the same length (number of timesteps)"
+    for destination in destinations:
+        shutil.rmtree(os.path.join(destination, "point_cloud"), ignore_errors=True)
     pbar = tqdm(range(1, iteration+1), dynamic_ncols=True, desc="Training")
-    epoch = list(range(len(dataset)))
-    epoch_psnr = torch.empty(3, 0)
-    epoch_maskpsnr = torch.empty(3, 0)
+    epoch = [list(range(len(dataset))) for dataset in datasets]
+    epoch_psnr = [torch.empty(3, 0) for _ in range(len(datasets))]
+    epoch_maskpsnr = [torch.empty(3, 0) for _ in range(len(datasets))]
     ema_loss_for_log = 0.0
     avg_psnr_for_log = 0.0
     avg_maskpsnr_for_log = 0.0
+    avg_psnrs = [None] * len(datasets)
+    avg_maskpsnrs = [None] * len(datasets)
     for step in pbar:
-        epoch_idx = step % len(dataset)
-        if epoch_idx == 0:
-            avg_psnr_for_log = epoch_psnr.mean().item()
-            avg_maskpsnr_for_log = epoch_maskpsnr.mean().item()
-            epoch_psnr = torch.empty(3, 0)
-            epoch_maskpsnr = torch.empty(3, 0)
-            random.shuffle(epoch)
-        idx = epoch[epoch_idx]
-        loss, out = trainer.step(dataset[idx])
-        with torch.no_grad():
-            ground_truth_image = dataset[idx].ground_truth_image
-            rendered_image = out["render"].detach()
-            epoch_psnr = torch.concat([epoch_psnr, psnr(rendered_image, ground_truth_image).cpu()], dim=1)
-            if dataset[idx].ground_truth_image_mask is not None:
-                ground_truth_maskimage = ground_truth_image * dataset[idx].ground_truth_image_mask
-                rendered_maskimage = rendered_image * dataset[idx].ground_truth_image_mask
-                epoch_maskpsnr = torch.concat([epoch_maskpsnr, psnr(rendered_maskimage, ground_truth_maskimage).cpu()], dim=1)
-            ema_loss_for_log = 0.4 * loss.item() + 0.6 * ema_loss_for_log
-        # Free GPU memory held by the output dict (rasterization intermediates, rendered
-        # images, viewspace_points, etc.) before the next forward pass.
-        del loss, out
+        step_loss_sum = 0.0
+        for i in random.sample(range(len(datasets)), len(datasets)):
+            dataset, trainer = datasets[i], trainers[i]
+            epoch_idx = step % len(dataset)
+            if epoch_idx == 0:
+                avg_psnrs[i] = epoch_psnr[i].mean().item() if epoch_psnr[i].numel() > 0 else None
+                avg_maskpsnrs[i] = epoch_maskpsnr[i].mean().item() if epoch_maskpsnr[i].numel() > 0 else None
+                valid_psnrs = [v for v in avg_psnrs if v is not None]
+                valid_maskpsnrs = [v for v in avg_maskpsnrs if v is not None]
+                avg_psnr_for_log = sum(valid_psnrs) / len(valid_psnrs) if valid_psnrs else 0.0
+                avg_maskpsnr_for_log = sum(valid_maskpsnrs) / len(valid_maskpsnrs) if valid_maskpsnrs else 0.0
+                epoch_psnr[i] = torch.empty(3, 0)
+                epoch_maskpsnr[i] = torch.empty(3, 0)
+                random.shuffle(epoch[i])
+            idx = epoch[i][epoch_idx]
+            loss, out = trainer.step(dataset[idx])
+            with torch.no_grad():
+                ground_truth_image = dataset[idx].ground_truth_image
+                rendered_image = out["render"].detach()
+                epoch_psnr[i] = torch.concat([epoch_psnr[i], psnr(rendered_image, ground_truth_image).cpu()], dim=1)
+                if dataset[idx].ground_truth_image_mask is not None:
+                    ground_truth_maskimage = ground_truth_image * dataset[idx].ground_truth_image_mask
+                    rendered_maskimage = rendered_image * dataset[idx].ground_truth_image_mask
+                    epoch_maskpsnr[i] = torch.cat([epoch_maskpsnr[i], psnr(rendered_maskimage, ground_truth_maskimage).cpu()], dim=1)
+                step_loss_sum += loss.item()
+            del loss, out
+        ema_loss_for_log = 0.4 * (step_loss_sum / len(datasets)) + 0.6 * ema_loss_for_log
         if empty_cache_every_step:
             torch.cuda.empty_cache()
         if step % 10 == 0:
-            postfix = {'epoch': step // len(dataset), 'loss': ema_loss_for_log, 'psnr': avg_psnr_for_log, 'masked psnr': avg_maskpsnr_for_log, 'n': gaussians._xyz.shape[0]}
+            postfix = {'loss': ema_loss_for_log, 'psnr': avg_psnr_for_log, 'masked psnr': avg_maskpsnr_for_log, 'n': sum(g._xyz.shape[0] for g in gaussians_list)}
             if avg_maskpsnr_for_log <= 0:
                 del postfix['masked psnr']
             pbar.set_postfix(postfix)
         if step in save_iterations:
-            save_path = os.path.join(destination, "point_cloud", "iteration_" + str(step))
-            os.makedirs(save_path, exist_ok=True)
-            gaussians.save_ply(os.path.join(save_path, "point_cloud.ply"))
-            dataset.save_cameras(os.path.join(destination, "cameras.json"))
-    save_path = os.path.join(destination, "point_cloud", "iteration_" + str(iteration))
-    os.makedirs(save_path, exist_ok=True)
-    gaussians.save_ply(os.path.join(save_path, "point_cloud.ply"))
-    dataset.save_cameras(os.path.join(destination, "cameras.json"))
+            for destination, gaussians, dataset in zip(destinations, gaussians_list, datasets):
+                save_path = os.path.join(destination, "point_cloud", "iteration_" + str(step))
+                os.makedirs(save_path, exist_ok=True)
+                gaussians.save_ply(os.path.join(save_path, "point_cloud.ply"))
+                dataset.save_cameras(os.path.join(destination, "cameras.json"))
+    for destination, gaussians, dataset in zip(destinations, gaussians_list, datasets):
+        save_path = os.path.join(destination, "point_cloud", "iteration_" + str(iteration))
+        os.makedirs(save_path, exist_ok=True)
+        gaussians.save_ply(os.path.join(save_path, "point_cloud.ply"))
+        dataset.save_cameras(os.path.join(destination, "cameras.json"))
