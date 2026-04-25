@@ -17,6 +17,7 @@ class VGGTSequenceExtractor(InherentSequenceFeatureExtractor):
     """
 
     def __init__(self, extractor: VGGTExtractor):
+        assert isinstance(extractor, VGGTExtractor), "VGGTSequenceExtractor requires a VGGTExtractor instance."
         super().__init__(extractor)
 
     def extract_sequence_all(self, sequences: Iterable[Iterable[torch.Tensor]]) -> Iterator[Iterator[torch.Tensor]]:
