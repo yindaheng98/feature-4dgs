@@ -20,7 +20,7 @@
                 "output/coffee_martini/semantic/frame1",
                 "output/coffee_martini/semantic/refine/masked-propagate-dot-cotracker3/frame2",
                 "-i",
-                "1",
+                "30000",
                 "--mode",
                 "base",
                 "-l",
@@ -30,6 +30,28 @@
                 "--empty_cache_every_step",
                 "--no_image_mask",
                 "--no_depth_data",
+            ]
+        },
+        {
+            "name": "viewer semantic",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "feature_3dgs.viewer",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--name",
+                "dinov3_vitl16",
+                "--embed_dim",
+                "48",
+                "-s",
+                "data/coffee_martini/frame2",
+                "-d",
+                "output/coffee_martini/semantic/refine/masked-propagate-dot-cotracker3/frame2",
+                "-i",
+                "30000",
+                "--port",
+                "8080",
             ]
         },
     ]
