@@ -10,7 +10,7 @@ from .extractor import AbstractSequenceFeatureExtractor
 from .dataset import SequenceFeatureCameraDataset
 
 
-class ElementWiseSequenceFeatureExtractor(AbstractSequenceFeatureExtractor):
+class InherentSequenceFeatureExtractor(AbstractSequenceFeatureExtractor):
     """Lift any :class:`AbstractFeatureExtractor` into the
     :class:`AbstractSequenceFeatureExtractor` interface by simply forwarding
     ``__call__``, ``to`` and ``extract_all`` to the wrapped extractor.
@@ -25,7 +25,7 @@ class ElementWiseSequenceFeatureExtractor(AbstractSequenceFeatureExtractor):
     def __call__(self, image: torch.Tensor) -> torch.Tensor:
         return self.extractor(image)
 
-    def to(self, device) -> 'ElementWiseSequenceFeatureExtractor':
+    def to(self, device) -> 'InherentSequenceFeatureExtractor':
         self.extractor = self.extractor.to(device)
         return self
 
@@ -33,11 +33,11 @@ class ElementWiseSequenceFeatureExtractor(AbstractSequenceFeatureExtractor):
         return self.extractor.extract_all(images)
 
 
-class ElementWiseSequenceFeatureCameraDataset(SequenceFeatureCameraDataset):
+class InherentSequenceFeatureCameraDataset(SequenceFeatureCameraDataset):
     """Convenience subclass of :class:`SequenceFeatureCameraDataset` that
     accepts a plain :class:`AbstractFeatureExtractor` and wraps it with a
-    :class:`ElementWiseSequenceFeatureExtractor` before constructing the sequence.
+    :class:`InherentSequenceFeatureExtractor` before constructing the sequence.
     """
 
     def __init__(self, cameras_list: List[CameraDataset], extractor: AbstractFeatureExtractor, cache_device=None):
-        super().__init__(cameras_list=cameras_list, extractor=ElementWiseSequenceFeatureExtractor(extractor), cache_device=cache_device)
+        super().__init__(cameras_list=cameras_list, extractor=InherentSequenceFeatureExtractor(extractor), cache_device=cache_device)

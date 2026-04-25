@@ -10,7 +10,7 @@
             "justMyCode": false,
             "args": [
                 "--name",
-                "dinov3_vitl16-elementwise",
+                "dinov3_vitl16-inherent",
                 "--embed_dim",
                 "48",
                 "-s",

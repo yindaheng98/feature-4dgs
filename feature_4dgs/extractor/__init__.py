@@ -1,3 +1,3 @@
 from .extractor import AbstractSequenceFeatureExtractor
 from .dataset import SequenceFeatureCameraDataset
-from .wrapper import ElementWiseSequenceFeatureExtractor, ElementWiseSequenceFeatureCameraDataset
+from .wrapper import InherentSequenceFeatureExtractor, InherentSequenceFeatureCameraDataset
