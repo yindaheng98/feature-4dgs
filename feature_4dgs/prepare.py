@@ -1,8 +1,13 @@
+import os
+import tempfile
 from typing import List, Tuple
 
+import torch
 from gaussian_splatting.dataset import CameraDataset
 from gaussian_splatting.prepare import prepare_dataset
 from feature_3dgs.decoder import AbstractTrainableDecoder
+from feature_3dgs.prepare import prepare_gaussians
+from feature_3dgs import SemanticGaussianModel
 from .registry import build_extractor_decoder
 
 from .extractor import SequenceFeatureCameraDataset
@@ -47,3 +52,43 @@ def prepare_datasets_and_decoder(
     if preload_cache:
         datasets.preload_cache()
     return datasets, decoder
+
+
+def prepare_gaussians_sequence(
+        decoder: AbstractTrainableDecoder, sh_degree: int,
+        sources: List[str], datasets: SequenceFeatureCameraDataset, device: str,
+        trainable_camera: bool = False, load_plys: List[str] = None, load_semantic: bool = True,
+) -> List[SemanticGaussianModel]:
+    """Prepare one :class:`SemanticGaussianModel` per timestep, ensuring a
+    consistent decoder initialisation across all frames.
+
+    After the first frame is prepared its decoder state is saved to a temporary
+    file.  Every subsequent frame that would go through ``init_semantic``
+    (i.e. ``not load_ply or not load_semantic``) receives that file via the
+    ``load_decoder`` parameter so all frames start from the same weights.
+    """
+    load_plys = load_plys if load_plys is not None else [None] * len(sources)
+    assert len(load_plys) == len(sources), "len(load_plys) must equal len(sources)"
+
+    first_gaussians = prepare_gaussians(
+        decoder=decoder, sh_degree=sh_degree, source=sources[0], dataset=datasets[0],
+        device=device, trainable_camera=trainable_camera,
+        load_ply=load_plys[0], load_semantic=load_semantic,
+    )
+    gaussians_list: List[SemanticGaussianModel] = [first_gaussians]
+
+    with tempfile.TemporaryDirectory(prefix="feature4dgs_decoder_") as tmp_decoder_dir:
+        tmp_decoder_path = os.path.join(tmp_decoder_dir, "init")
+        torch.save(decoder.state_dict(), tmp_decoder_path + ".decoder.pt")
+
+        for source, dataset, load_ply in zip(sources[1:], datasets[1:], load_plys[1:]):
+            load_decoder = tmp_decoder_path if (not load_ply or not load_semantic) else None
+            gaussians = prepare_gaussians(
+                decoder=decoder, sh_degree=sh_degree, source=source, dataset=dataset,
+                device=device, trainable_camera=trainable_camera,
+                load_ply=load_ply, load_semantic=load_semantic,
+                load_decoder=load_decoder,
+            )
+            gaussians_list.append(gaussians)
+
+    return gaussians_list
