@@ -1,4 +1,4 @@
-# Sequence-Aware Feature Training for Feature 3DGS (Packaged Python Version)
+# Sequence-Aware Feature Training for Feature 3DGS
 
 This repo is the **sequence-aware Python training extension for Feature 3DGS**, built on top of [`feature-3dgs`](https://github.com/yindaheng98/feature-3dgs) and [`gaussian-splatting`](https://github.com/yindaheng98/gaussian-splatting).
 It extends the packaged Feature 3DGS Extractor-Decoder architecture from single scenes to multi-timestep 4D / dynamic-scene training.
@@ -19,7 +19,8 @@ Each timestep owns an independent `SemanticGaussianModel`, while the whole seque
 
 * [Pytorch](https://pytorch.org/) (>= v2.4 recommended)
 * [CUDA Toolkit](https://developer.nvidia.com/cuda-12-4-0-download-archive) (12.4 recommended, match with PyTorch version)
-* [`feature-3dgs`](https://github.com/yindaheng98/feature-3dgs) (>= v1.10.0)
+* [gsplat](https://github.com/nerfstudio-project/gsplat)
+* [`feature-3dgs`](https://github.com/yindaheng98/feature-3dgs)
 
 Install `feature-3dgs` dependencies used by the inherited extractors:
 ```shell
