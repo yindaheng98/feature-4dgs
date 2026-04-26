@@ -12,7 +12,7 @@ pypi_build = os.environ.get("PYPI_BUILD", "").lower() in {"1", "true", "yes", "o
 
 setup(
     name="feature_4dgs",
-    version="1.0.2",
+    version="1.0.3",
     author="yindaheng98",
     author_email="yindaheng98@gmail.com",
     url="https://github.com/yindaheng98/feature-4dgs",
@@ -24,8 +24,6 @@ setup(
     ],
     packages=find_packages(),
     install_requires=[
-        "feature-3dgs",
-    ] + ([
-        "feature-3dgs @ git+https://github.com/yindaheng98/feature-3dgs.git@main",
-    ] if not pypi_build else []),
+        "feature-3dgs" if pypi_build else "feature-3dgs @ git+https://github.com/yindaheng98/feature-3dgs.git@main"
+    ],
 )
