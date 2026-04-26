@@ -4,6 +4,7 @@ from itertools import islice
 import torch
 
 from feature_3dgs.vggt.extractor import VGGTExtractor
+from feature_3dgs.vggt.track import VGGTrackExtractor
 from feature_4dgs.extractor import InherentSequenceFeatureExtractor
 
 
@@ -30,3 +31,15 @@ class VGGTSequenceExtractor(InherentSequenceFeatureExtractor):
         results = self.extract_all(flatten)
         for count in counts:
             yield islice(results, count)
+
+
+class VGGTrackSequenceExtractor(VGGTSequenceExtractor):
+    """VGGTrack-aware sequence extractor.
+
+    Identical to :class:`VGGTSequenceExtractor` but asserts the wrapped
+    extractor is a :class:`VGGTrackExtractor`.
+    """
+
+    def __init__(self, extractor: VGGTrackExtractor):
+        assert isinstance(extractor, VGGTrackExtractor), "VGGTrackSequenceExtractor requires a VGGTrackExtractor instance."
+        super().__init__(extractor)
