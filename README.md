@@ -43,7 +43,7 @@ or
 build latest from source:
 ```shell
 pip install wheel setuptools
-pip install --upgrade git+https://github.com/yindaheng98/feature-4dgs.git@main --no-build-isolation
+pip install --upgrade git+https://github.com/yindaheng98/feature-4dgs.git@master --no-build-isolation
 ```
 
 ### Development Install
