@@ -1,4 +1,4 @@
-import os
+from collections.abc import Iterable, Sequence
 from typing import List
 
 import tqdm
@@ -10,17 +10,20 @@ from feature_3dgs.extractor import FeatureCameraDataset, TrainableFeatureCameraD
 from .extractor import AbstractSequenceFeatureExtractor
 
 
-class SequenceFeatureCameraDataset:
+class SequenceFeatureCameraDataset(Sequence[FeatureCameraDataset]):
     """A sequence of per-timestep :class:`FeatureCameraDataset`.
 
-    Takes multiple :class:`CameraDataset` objects (one per timestep) plus a
-    shared :class:`AbstractSequenceFeatureExtractor`, and wraps each of them
-    as a :class:`FeatureCameraDataset` (or :class:`TrainableFeatureCameraDataset`
-    when the input is a :class:`TrainableCameraDataset`).  Indexing the
-    sequence with ``seq[t]`` returns the ``t``-th timestep's feature dataset.
+    Takes any iterable of :class:`CameraDataset` objects (one per timestep)
+    plus a shared :class:`AbstractSequenceFeatureExtractor`, and wraps each of
+    them as a :class:`FeatureCameraDataset` (or
+    :class:`TrainableFeatureCameraDataset` when the input is a
+    :class:`TrainableCameraDataset`).  Because :class:`FeatureCameraDataset`
+    is itself a :class:`CameraDataset`, sequence feature datasets can be
+    nested to stack multiple feature extractors.  Indexing the sequence with
+    ``seq[t]`` returns the ``t``-th timestep's feature dataset.
     """
 
-    def __init__(self, cameras_list: List[CameraDataset], extractor: AbstractSequenceFeatureExtractor, cache_device=None):
+    def __init__(self, cameras_list: Iterable[CameraDataset], extractor: AbstractSequenceFeatureExtractor, cache_device=None):
         self.extractor = extractor
         self.cache_device = cache_device
         self.datasets: List[FeatureCameraDataset] = []

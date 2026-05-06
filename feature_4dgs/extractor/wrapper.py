@@ -1,5 +1,4 @@
 from collections.abc import Iterable, Iterator
-from typing import List
 
 import torch
 
@@ -39,5 +38,5 @@ class InherentSequenceFeatureCameraDataset(SequenceFeatureCameraDataset):
     :class:`InherentSequenceFeatureExtractor` before constructing the sequence.
     """
 
-    def __init__(self, cameras_list: List[CameraDataset], extractor: AbstractFeatureExtractor, cache_device=None):
+    def __init__(self, cameras_list: Iterable[CameraDataset], extractor: AbstractFeatureExtractor, cache_device=None):
         super().__init__(cameras_list=cameras_list, extractor=InherentSequenceFeatureExtractor(extractor), cache_device=cache_device)
