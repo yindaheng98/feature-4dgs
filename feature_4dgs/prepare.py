@@ -30,7 +30,7 @@ def prepare_datasets(sources: List[str], device: str, trainable_camera: bool = F
 
 
 def prepare_datasets_and_decoder(
-        name: str, sources: List[str], embed_dim: int, device: str, dataset_cache_device: str = None,
+        name: str, sources: List[str], encoded_dim: int, device: str, dataset_cache_device: str = None,
         trainable_camera: bool = False, load_cameras: List[str] = None, load_mask=True, load_depth=True,
         preload_cache: bool = True, configs={},
 ) -> Tuple[SequenceFeatureCameraDataset, AbstractTrainableDecoder]:
@@ -46,7 +46,7 @@ def prepare_datasets_and_decoder(
         load_mask=load_mask, load_depth=load_depth,
     )
     extractor, decoder = build_extractor_decoder(
-        name=name, embed_dim=embed_dim, **configs
+        name=name, encoded_dim=encoded_dim, **configs
     )
     datasets = SequenceFeatureCameraDataset(cameras_list=cameras_list, extractor=extractor, cache_device=dataset_cache_device).to(device)
     if preload_cache:

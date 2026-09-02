@@ -17,7 +17,7 @@ from .prepare import prepare_datasets_and_decoder, prepare_gaussians_sequence
 
 
 def prepare_training(
-        name: str, sh_degree: int, mode: str, sources: List[str], embed_dim: int,
+        name: str, sh_degree: int, mode: str, sources: List[str], encoded_dim: int,
         device: str, dataset_cache_device: str = None,
         trainable_camera: bool = False, load_plys: List[str] = None, load_decoder: str = None, load_cameras: List[str] = None,
         load_mask=True, load_depth=True, load_semantic: bool = True,
@@ -29,7 +29,7 @@ def prepare_training(
     factory) that is attached to every :class:`SemanticGaussianModel`.
     """
     datasets, decoder = prepare_datasets_and_decoder(
-        name=name, sources=sources, embed_dim=embed_dim, device=device, dataset_cache_device=dataset_cache_device,
+        name=name, sources=sources, encoded_dim=encoded_dim, device=device, dataset_cache_device=dataset_cache_device,
         trainable_camera=trainable_camera, load_cameras=load_cameras,
         load_mask=load_mask, load_depth=load_depth, preload_cache=preload_cache, configs=extractor_configs,
     )
@@ -110,7 +110,7 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--sh_degree", default=3, type=int)
     parser.add_argument("--name", required=True, type=str)
-    parser.add_argument("--embed_dim", required=True, type=int)
+    parser.add_argument("--encoded_dim", required=True, type=int)
     parser.add_argument("-s", "--sources", required=True, nargs='+', type=str)
     parser.add_argument("-d", "--destinations", required=True, nargs='+', type=str)
     parser.add_argument("-i", "--iteration", default=30000, type=int)
@@ -142,7 +142,7 @@ if __name__ == "__main__":
     extractor_configs = {o.split("=", 1)[0]: eval(o.split("=", 1)[1]) for o in args.option_extractor}
     datasets, gaussians_list, trainers = prepare_training(
         name=args.name, sh_degree=args.sh_degree, mode=args.mode,
-        sources=args.sources, embed_dim=args.embed_dim,
+        sources=args.sources, encoded_dim=args.encoded_dim,
         device=args.device, dataset_cache_device=args.dataset_cache_device,
         trainable_camera="camera" in args.mode,
         load_plys=args.load_plys, load_decoder=args.load_decoder, load_cameras=args.load_cameras,

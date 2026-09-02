@@ -5,7 +5,7 @@ from .extractor import AbstractSequenceFeatureExtractor
 
 
 class SequenceExtractorDecoderFactory(Protocol):
-    def __call__(self, embed_dim: int, *args: object, **kwargs: object) -> tuple[AbstractSequenceFeatureExtractor, AbstractTrainableDecoder]: ...
+    def __call__(self, encoded_dim: int, *args: object, **kwargs: object) -> tuple[AbstractSequenceFeatureExtractor, AbstractTrainableDecoder]: ...
 
 
 REGISTRY: dict[str, SequenceExtractorDecoderFactory] = {}
@@ -23,11 +23,11 @@ def get_available_extractor_decoders() -> list[str]:
     return list(REGISTRY.keys())
 
 
-def build_extractor_decoder(name: str, embed_dim: int, **configs) -> Tuple[AbstractSequenceFeatureExtractor, AbstractTrainableDecoder]:
+def build_extractor_decoder(name: str, encoded_dim: int, **configs) -> Tuple[AbstractSequenceFeatureExtractor, AbstractTrainableDecoder]:
     """Build an (AbstractSequenceFeatureExtractor, AbstractTrainableDecoder) pair by name."""
     if name not in REGISTRY:
         raise KeyError(
             f"Sequence extractor-decoder combination '{name}' not found. "
             f"Available: {get_available_extractor_decoders()}"
         )
-    return REGISTRY[name](embed_dim, **configs)
+    return REGISTRY[name](encoded_dim, **configs)

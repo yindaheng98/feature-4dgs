@@ -25,6 +25,7 @@ class SequenceFeatureCameraDataset(Sequence[FeatureCameraDataset]):
 
     def __init__(self, cameras_list: Iterable[CameraDataset], extractor: AbstractSequenceFeatureExtractor, cache_device=None):
         self.extractor = extractor
+        self._feature_dim = extractor.feature_dim
         self.cache_device = cache_device
         self.datasets: List[FeatureCameraDataset] = []
         for cameras in cameras_list:
@@ -48,8 +49,8 @@ class SequenceFeatureCameraDataset(Sequence[FeatureCameraDataset]):
         return self.datasets[idx]
 
     @property
-    def embed_dim(self) -> int:
-        return self.datasets[0].embed_dim
+    def feature_dim(self) -> int:
+        return self._feature_dim
 
     def preload_cache(self):
         sequences = ((camera.ground_truth_image for camera in dataset.cameras) for dataset in self.datasets)

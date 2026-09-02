@@ -16,8 +16,8 @@ MODEL_VGGTRACK = "vggtrack"
 def build_factory():
     factory_inherent = build_factory_inherent()
 
-    def factory(embed_dim: int, **configs,) -> Tuple[AbstractSequenceFeatureExtractor, AbstractTrainableDecoder]:
-        extractor, decoder = factory_inherent(embed_dim, **configs)
+    def factory(encoded_dim: int, **configs,) -> Tuple[AbstractSequenceFeatureExtractor, AbstractTrainableDecoder]:
+        extractor, decoder = factory_inherent(encoded_dim, **configs)
         return VGGTSequenceExtractor(extractor), decoder
 
     return factory
@@ -26,8 +26,8 @@ def build_factory():
 def build_track_factory():
     factory_inherent = build_track_factory_inherent()
 
-    def factory(embed_dim: int, **configs,) -> Tuple[AbstractSequenceFeatureExtractor, AbstractTrainableDecoder]:
-        extractor, decoder = factory_inherent(embed_dim, **configs)
+    def factory(encoded_dim: int, **configs,) -> Tuple[AbstractSequenceFeatureExtractor, AbstractTrainableDecoder]:
+        extractor, decoder = factory_inherent(encoded_dim, **configs)
         return VGGTrackSequenceExtractor(extractor), decoder
 
     return factory

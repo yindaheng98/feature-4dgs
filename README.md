@@ -74,7 +74,7 @@ Every extractor registered by `feature_3dgs` is also available with an `-inheren
 
 ```shell
 python -m feature_4dgs.train \
-    --name dinov3_vitl16-inherent --embed_dim 32 \
+    --name dinov3_vitl16-inherent --encoded_dim 32 \
     -s data/sequence/frame_000 data/sequence/frame_001 data/sequence/frame_002 \
     -d output/sequence/frame_000-dinov3_vitl16 output/sequence/frame_001-dinov3_vitl16 output/sequence/frame_002-dinov3_vitl16 \
     -i 30000 \
@@ -88,7 +88,7 @@ Each `-s/--sources` entry is one timestep's COLMAP / Gaussian Splatting scene di
 
 ```shell
 python -m feature_4dgs.train \
-    --name dinov3_vitl16-inherent --embed_dim 32 \
+    --name dinov3_vitl16-inherent --encoded_dim 32 \
     -s data/sequence/frame_000 data/sequence/frame_001 \
     -d output/sequence/frame_000-dinov3_vitl16 output/sequence/frame_001-dinov3_vitl16 \
     -l output/sequence/frame_000-dinov3_vitl16/point_cloud/iteration_30000/point_cloud.ply \
@@ -112,7 +112,7 @@ datasets, decoder = prepare_datasets_and_decoder(
         "data/sequence/frame_000",
         "data/sequence/frame_001",
     ],
-    embed_dim=32,
+    encoded_dim=32,
     device="cuda",
     dataset_cache_device="cpu",
     configs={"checkpoint_dir": "checkpoints"},
@@ -150,7 +150,7 @@ datasets, gaussians_list, trainers = prepare_training(
     sh_degree=3,
     mode="densify",
     sources=["data/sequence/frame_000", "data/sequence/frame_001"],
-    embed_dim=32,
+    encoded_dim=32,
     device="cuda",
     extractor_configs={"checkpoint_dir": "checkpoints"},
 )
@@ -220,7 +220,7 @@ Sharing the decoder keeps all per-frame Gaussian embeddings aligned to a common 
 Any `feature_3dgs` extractor-decoder factory can be lifted into this sequence-aware package by wrapping its extractor with `InherentSequenceFeatureExtractor`. These registrations are suffixed with `-inherent`:
 
 ```shell
-python -m feature_4dgs.train --name dinov3_vitl16-inherent --embed_dim 32 \
+python -m feature_4dgs.train --name dinov3_vitl16-inherent --encoded_dim 32 \
     -s data/frame_000 data/frame_001 \
     -d output/frame_000 output/frame_001
 ```
@@ -276,10 +276,10 @@ from .extractor import MyModelSequenceExtractor
 
 FEATURE_DIM = 768
 
-def factory(embed_dim: int, **configs):
+def factory(encoded_dim: int, **configs):
     extractor = MyModelSequenceExtractor(...)
     decoder = LinearDecoder(
-        in_channels=embed_dim,
+        in_channels=encoded_dim,
         out_channels=FEATURE_DIM,
     )
     return extractor, decoder
@@ -304,7 +304,7 @@ from . import mymodel  # auto-registers "mymodel"
 After these steps, the new model is available everywhere:
 
 ```shell
-python -m feature_4dgs.train --name mymodel --embed_dim 32 \
+python -m feature_4dgs.train --name mymodel --encoded_dim 32 \
     -s data/frame_000 data/frame_001 \
     -d output/frame_000-mymodel output/frame_001-mymodel \
     -i 30000

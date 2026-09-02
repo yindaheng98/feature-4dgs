@@ -21,6 +21,10 @@ class InherentSequenceFeatureExtractor(AbstractSequenceFeatureExtractor):
     def __init__(self, extractor: AbstractFeatureExtractor):
         self.extractor = extractor
 
+    @property
+    def feature_dim(self) -> int:
+        return self.extractor.feature_dim
+
     def __call__(self, image: torch.Tensor) -> torch.Tensor:
         return self.extractor(image)
 

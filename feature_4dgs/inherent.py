@@ -25,8 +25,8 @@ class InherentSequenceExtractorDecoderFactory:
     def __init__(self, factory: ExtractorDecoderFactory):
         self.factory = factory
 
-    def __call__(self, embed_dim: int, *args, **kwargs) -> Tuple[AbstractSequenceFeatureExtractor, AbstractTrainableDecoder]:
-        extractor, decoder = self.factory(embed_dim, *args, **kwargs)
+    def __call__(self, encoded_dim: int, *args, **kwargs) -> Tuple[AbstractSequenceFeatureExtractor, AbstractTrainableDecoder]:
+        extractor, decoder = self.factory(encoded_dim, *args, **kwargs)
         return InherentSequenceFeatureExtractor(extractor), decoder
 
 
