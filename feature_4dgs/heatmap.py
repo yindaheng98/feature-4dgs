@@ -1,12 +1,36 @@
+import os
 from typing import Sequence
 
 import torch
+import torch.nn.functional as F
+from matplotlib.cm import viridis
+from torchvision.utils import save_image
+from tqdm import tqdm
+
+from gaussian_splatting import Camera
+from feature_3dgs.segmentation2d import get_feature
 
 from .prepare import prepare_datasets_and_decoder
 
 
-def save_heatmaps(datasets, sources: Sequence[str], time: int, view: int, width_idx: int, height_idx: int, destination: str):
-    pass
+def save_heatmaps(datasets, sources: Sequence[str], query: torch.Tensor, destination: str):
+    pbar = tqdm(total=sum(len(dataset) for dataset in datasets), desc="Saving heatmaps", dynamic_ncols=True)
+    for t, dataset in enumerate(datasets):
+        frame = os.path.basename(os.path.normpath(sources[t]))
+        for i in range(len(dataset)):
+            camera: Camera = dataset[i]
+            view_dir = os.path.join(destination, str(i))
+            os.makedirs(view_dir, exist_ok=True)
+            image = camera.ground_truth_image.clamp(0, 1)
+            fmap = camera.custom_data["feature_map"]
+            sim = F.cosine_similarity(query.to(fmap.device).reshape(-1, 1, 1), fmap, dim=0)
+            if sim.shape != image.shape[1:]:
+                sim = F.interpolate(sim[None, None], size=image.shape[1:], mode="bilinear", align_corners=False)[0, 0]
+            heatmap = torch.from_numpy(viridis(((sim.clamp(-1, 1) + 1) / 2).detach().cpu().numpy())[..., :3]).permute(2, 0, 1).float()
+            save_image(image, os.path.join(view_dir, f"{frame}.png"))
+            save_image(heatmap, os.path.join(view_dir, f"{frame}_heatmap.png"))
+            pbar.update(1)
+    pbar.close()
 
 
 if __name__ == "__main__":
@@ -36,4 +60,5 @@ if __name__ == "__main__":
     )
     del decoder
     with torch.no_grad():
-        save_heatmaps(datasets, args.sources, args.time, args.view, args.width_idx, args.height_idx, args.destination)
+        query = get_feature(datasets[args.time], args.view, args.width_idx, args.height_idx)
+        save_heatmaps(datasets, args.sources, query, args.destination)
