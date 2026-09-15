@@ -1,10 +1,12 @@
 import os
 from typing import Sequence
 
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn.functional as F
 from matplotlib.cm import viridis
-from torchvision.utils import save_image
 from tqdm import tqdm
 
 from gaussian_splatting import Camera
@@ -12,8 +14,14 @@ from feature_3dgs.segmentation2d import get_feature
 
 from .prepare import prepare_datasets_and_decoder
 
+DPI = 150
+matplotlib.use("Agg")
 
-def save_heatmaps(datasets, sources: Sequence[str], query: torch.Tensor, destination: str):
+
+def save_heatmaps(
+    datasets, sources: Sequence[str], query: torch.Tensor, destination: str,
+    time: int, view: int, width_idx: int, height_idx: int,
+):
     pbar = tqdm(total=sum(len(dataset) for dataset in datasets), desc="Saving heatmaps", dynamic_ncols=True)
     for t, dataset in enumerate(datasets):
         frame = os.path.basename(os.path.normpath(sources[t]))
@@ -22,13 +30,32 @@ def save_heatmaps(datasets, sources: Sequence[str], query: torch.Tensor, destina
             view_dir = os.path.join(destination, str(i))
             os.makedirs(view_dir, exist_ok=True)
             image = camera.ground_truth_image.clamp(0, 1)
+            H, W = image.shape[1], image.shape[2]
             fmap = camera.custom_data["feature_map"]
             sim = F.cosine_similarity(query.to(fmap.device).reshape(-1, 1, 1), fmap, dim=0)
-            if sim.shape != image.shape[1:]:
-                sim = F.interpolate(sim[None, None], size=image.shape[1:], mode="bilinear", align_corners=False)[0, 0]
-            heatmap = torch.from_numpy(viridis(((sim.clamp(-1, 1) + 1) / 2).detach().cpu().numpy())[..., :3]).permute(2, 0, 1).float()
-            save_image(image, os.path.join(view_dir, f"{frame}.png"))
-            save_image(heatmap, os.path.join(view_dir, f"{frame}_heatmap.png"))
+            pk = sim.reshape(-1).argmax().item()
+            pi, pj = divmod(pk, sim.shape[1])
+            peak_x = pj * (W - 1) / max(sim.shape[1] - 1, 1)
+            peak_y = pi * (H - 1) / max(sim.shape[0] - 1, 1)
+            if sim.shape != (H, W):
+                sim = F.interpolate(sim[None, None], size=(H, W), mode="bilinear", align_corners=False)[0, 0]
+            rgb = image.detach().permute(1, 2, 0).cpu().numpy()
+            heatmap = viridis(((sim.clamp(-1, 1) + 1) / 2).detach().cpu().numpy())[..., :3]
+            is_query = t == time and i == view
+            mx, my = (width_idx, height_idx) if is_query else (peak_x, peak_y)
+            title = f"{i} | {frame}  (query)" if is_query else f"{i} | {frame}  peak={sim.max().item():.3f}"
+            for img, name in ((rgb, f"{frame}.png"), (heatmap, f"{frame}_heatmap.png")):
+                fig, ax = plt.subplots(figsize=(W / DPI, H / DPI), dpi=DPI)
+                ax.imshow(np.clip(img, 0, 1))
+                if is_query:
+                    ax.plot(mx, my, "r+", markersize=16, markeredgewidth=2)
+                else:
+                    ax.plot(mx, my, "c*", markersize=12)
+                ax.set_title(title)
+                ax.axis("off")
+                fig.tight_layout()
+                fig.savefig(os.path.join(view_dir, name), bbox_inches="tight", pad_inches=0.05)
+                plt.close(fig)
             pbar.update(1)
     pbar.close()
 
@@ -61,4 +88,7 @@ if __name__ == "__main__":
     del decoder
     with torch.no_grad():
         query = get_feature(datasets[args.time], args.view, args.width_idx, args.height_idx)
-        save_heatmaps(datasets, args.sources, query, args.destination)
+        save_heatmaps(
+            datasets, args.sources, query, args.destination,
+            args.time, args.view, args.width_idx, args.height_idx,
+        )
