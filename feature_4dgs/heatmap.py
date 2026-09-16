@@ -1,60 +1,63 @@
 import os
-from typing import Sequence
 
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import torch.nn.functional as F
 from matplotlib.cm import viridis
 from tqdm import tqdm
 
 from gaussian_splatting import Camera
+from feature_3dgs.decoder import AbstractTrainableDecoder
 from feature_3dgs.segmentation2d import get_feature
 
 from .prepare import prepare_datasets_and_decoder
+from .extractor import SequenceFeatureCameraDataset
 
 DPI = 150
-matplotlib.use("Agg")
 
 
 def save_heatmaps(
-    datasets, sources: Sequence[str], query: torch.Tensor, destination: str,
-    time: int, view: int, width_idx: int, height_idx: int,
+    datasets: SequenceFeatureCameraDataset, query: torch.Tensor, decoder: AbstractTrainableDecoder,
+    destination: str, time: int, view: int, width_idx: int, height_idx: int,
 ):
+    os.makedirs(destination, exist_ok=True)
     pbar = tqdm(total=sum(len(dataset) for dataset in datasets), desc="Saving heatmaps", dynamic_ncols=True)
     for t, dataset in enumerate(datasets):
-        frame = os.path.basename(os.path.normpath(sources[t]))
         for i in range(len(dataset)):
             camera: Camera = dataset[i]
-            view_dir = os.path.join(destination, str(i))
-            os.makedirs(view_dir, exist_ok=True)
             image = camera.ground_truth_image.clamp(0, 1)
             H, W = image.shape[1], image.shape[2]
             fmap = camera.custom_data["feature_map"]
-            sim = F.cosine_similarity(query.to(fmap.device).reshape(-1, 1, 1), fmap, dim=0)
+            encoded = decoder.encode_feature_map(fmap, camera)
+            sim = decoder.similarity_encoded_features(query.to(encoded.device), encoded.permute(1, 2, 0))
+            Hf, Wf = sim.shape
             pk = sim.reshape(-1).argmax().item()
-            pi, pj = divmod(pk, sim.shape[1])
-            peak_x = pj * (W - 1) / max(sim.shape[1] - 1, 1)
-            peak_y = pi * (H - 1) / max(sim.shape[0] - 1, 1)
-            if sim.shape != (H, W):
-                sim = F.interpolate(sim[None, None], size=(H, W), mode="bilinear", align_corners=False)[0, 0]
+            pi, pj = divmod(pk, Wf)
+            is_query = t == time and i == view
+            img_xy = (width_idx, height_idx) if is_query else (
+                pj * (W - 1) / max(Wf - 1, 1),
+                pi * (H - 1) / max(Hf - 1, 1),
+            )
+            feat_xy = (
+                width_idx * (Wf - 1) / max(W - 1, 1),
+                height_idx * (Hf - 1) / max(H - 1, 1),
+            ) if is_query else (pj, pi)
             rgb = image.detach().permute(1, 2, 0).cpu().numpy()
             heatmap = viridis(((sim.clamp(-1, 1) + 1) / 2).detach().cpu().numpy())[..., :3]
-            is_query = t == time and i == view
-            mx, my = (width_idx, height_idx) if is_query else (peak_x, peak_y)
-            title = f"{i} | {frame}  (query)" if is_query else f"{i} | {frame}  peak={sim.max().item():.3f}"
-            for img, name in ((rgb, f"{frame}.png"), (heatmap, f"{frame}_heatmap.png")):
-                fig, ax = plt.subplots(figsize=(W / DPI, H / DPI), dpi=DPI)
+            for img, name, xy in (
+                (rgb, f"{t}_{i}.png", img_xy),
+                (heatmap, f"{t}_{i}_heatmap.png", feat_xy),
+            ):
+                h, w = img.shape[:2]
+                fig = plt.figure(figsize=(w / DPI, h / DPI), dpi=DPI)
+                ax = fig.add_axes([0, 0, 1, 1])
                 ax.imshow(np.clip(img, 0, 1))
                 if is_query:
-                    ax.plot(mx, my, "r+", markersize=16, markeredgewidth=2)
+                    ax.plot(*xy, "r+", markersize=16, markeredgewidth=2)
                 else:
-                    ax.plot(mx, my, "c*", markersize=12)
-                ax.set_title(title)
-                ax.axis("off")
-                fig.tight_layout()
-                fig.savefig(os.path.join(view_dir, name), bbox_inches="tight", pad_inches=0.05)
+                    ax.plot(*xy, "c*", markersize=12)
+                ax.set_axis_off()
+                fig.savefig(os.path.join(destination, name), dpi=DPI, pad_inches=0)
                 plt.close(fig)
             pbar.update(1)
     pbar.close()
@@ -85,10 +88,11 @@ if __name__ == "__main__":
         trainable_camera=False, load_mask=False, load_depth=False,
         preload_cache=not args.no_preload_dataset_cache, configs=extractor_configs,
     )
-    del decoder
+    decoder.init_semantic(datasets[0])
+    decoder.to(args.device).eval()
     with torch.no_grad():
         query = get_feature(datasets[args.time], args.view, args.width_idx, args.height_idx)
         save_heatmaps(
-            datasets, args.sources, query, args.destination,
+            datasets, query, decoder, args.destination,
             args.time, args.view, args.width_idx, args.height_idx,
         )
