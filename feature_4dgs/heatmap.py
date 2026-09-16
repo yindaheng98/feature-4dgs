@@ -43,7 +43,8 @@ def save_heatmaps(
                 height_idx * (Hf - 1) / max(H - 1, 1),
             ) if is_query else (pj, pi)
             rgb = image.detach().permute(1, 2, 0).cpu().numpy()
-            heatmap = viridis(((sim.clamp(-1, 1) + 1) / 2).detach().cpu().numpy())[..., :3]
+            sim = (sim - sim.min()) / (sim.max() - sim.min()).clamp_min(1e-8)
+            heatmap = viridis(sim.detach().cpu().numpy())[..., :3]
             for img, name, xy in (
                 (rgb, f"t{t}_v{i}.png", img_xy),
                 (heatmap, f"t{t}_v{i}_heatmap.png", feat_xy),
