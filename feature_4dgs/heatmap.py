@@ -45,8 +45,8 @@ def save_heatmaps(
             rgb = image.detach().permute(1, 2, 0).cpu().numpy()
             heatmap = viridis(((sim.clamp(-1, 1) + 1) / 2).detach().cpu().numpy())[..., :3]
             for img, name, xy in (
-                (rgb, f"{t}_{i}.png", img_xy),
-                (heatmap, f"{t}_{i}_heatmap.png", feat_xy),
+                (rgb, f"t{t}_v{i}.png", img_xy),
+                (heatmap, f"t{t}_v{i}_heatmap.png", feat_xy),
             ):
                 h, w = img.shape[:2]
                 fig = plt.figure(figsize=(w / DPI, h / DPI), dpi=DPI)
