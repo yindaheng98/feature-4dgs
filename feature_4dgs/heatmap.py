@@ -3,6 +3,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import torch.nn.functional as F
 from matplotlib.cm import viridis
 from tqdm import tqdm
 
@@ -18,7 +19,7 @@ DPI = 150
 
 def save_heatmaps(
     datasets: SequenceFeatureCameraDataset, query: torch.Tensor, decoder: AbstractTrainableDecoder,
-    destination: str, time: int, view: int, width_idx: int, height_idx: int,
+    destination: str, time: int, view: int, width_idx: int, height_idx: int, upsample: str,
 ):
     os.makedirs(destination, exist_ok=True)
     pbar = tqdm(total=sum(len(dataset) for dataset in datasets), desc="Saving heatmaps", dynamic_ncols=True)
@@ -28,8 +29,12 @@ def save_heatmaps(
             image = camera.ground_truth_image.clamp(0, 1)
             H, W = image.shape[1], image.shape[2]
             fmap = camera.custom_data["feature_map"]
-            encoded = decoder.encode_feature_map(fmap, camera)
-            sim = decoder.similarity_encoded_features(query.to(encoded.device), encoded.permute(1, 2, 0))
+            if upsample == "feature":
+                encoded = decoder.encode_feature_map(fmap, camera)
+                sim = decoder.similarity_encoded_features(query.to(encoded.device), encoded.permute(1, 2, 0))
+            else:
+                sim = decoder.similarity(query.to(fmap.device), fmap.permute(1, 2, 0))
+                sim = F.interpolate(sim[None, None], size=(H, W), mode="bilinear", align_corners=True)[0, 0]
             Hf, Wf = sim.shape
             pk = sim.reshape(-1).argmax().item()
             pi, pj = divmod(pk, Wf)
@@ -80,6 +85,10 @@ if __name__ == "__main__":
     parser.add_argument("-v", "--view", required=True, type=int, help="Query camera index within that timestep (0-based).")
     parser.add_argument("-w", "--width_idx", required=True, type=int)
     parser.add_argument("-h", "--height_idx", required=True, type=int)
+    parser.add_argument(
+        "--upsample", choices=["feature", "similarity"], default="similarity",
+        help="feature: encode_feature_map then similarity; similarity: similarity then bilinear resize to image size.",
+    )
     args = parser.parse_args()
 
     extractor_configs = {o.split("=", 1)[0]: eval(o.split("=", 1)[1]) for o in args.option_extractor}
@@ -95,5 +104,5 @@ if __name__ == "__main__":
         query = get_feature(datasets[args.time], args.view, args.width_idx, args.height_idx)
         save_heatmaps(
             datasets, query, decoder, args.destination,
-            args.time, args.view, args.width_idx, args.height_idx,
+            args.time, args.view, args.width_idx, args.height_idx, args.upsample,
         )
