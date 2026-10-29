@@ -21,7 +21,7 @@ def prepare_training(
         device: str, dataset_cache_device: str = None,
         trainable_camera: bool = False, load_plys: List[str] = None, load_decoder: str = None, load_cameras: List[str] = None,
         load_mask=True, load_depth=True, load_semantic: bool = True,
-        preload_cache: bool = True, configs={}, extractor_configs={},
+        configs={}, extractor_configs={},
 ) -> Tuple[SequenceFeatureCameraDataset, List[SemanticGaussianModel], List[AbstractTrainer]]:
     """Prepare a sequence dataset, per-timestep gaussians and trainers.
 
@@ -31,7 +31,7 @@ def prepare_training(
     datasets, decoder = prepare_datasets_and_decoder(
         name=name, sources=sources, encoded_dim=encoded_dim, device=device, dataset_cache_device=dataset_cache_device,
         trainable_camera=trainable_camera, load_cameras=load_cameras,
-        load_mask=load_mask, load_depth=load_depth, preload_cache=preload_cache, configs=extractor_configs,
+        load_mask=load_mask, load_depth=load_depth, configs=extractor_configs,
     )
     gaussians_list = prepare_gaussians_sequence(
         decoder=decoder, sh_degree=sh_degree, sources=sources, datasets=datasets, device=device,
@@ -124,7 +124,6 @@ if __name__ == "__main__":
     parser.add_argument("--save_iterations", nargs="+", type=int, default=[7000, 30000])
     parser.add_argument("--device", default="cuda", type=str)
     parser.add_argument("--dataset_cache_device", default="cpu", type=str)
-    parser.add_argument("--no_preload_dataset_cache", action="store_true")
     parser.add_argument("--empty_cache_every_step", action='store_true')
     parser.add_argument("-o", "--option", default=[], action='append', type=str)
     parser.add_argument("-e", "--option_extractor", default=[], action='append', type=str)
@@ -147,7 +146,7 @@ if __name__ == "__main__":
         trainable_camera="camera" in args.mode,
         load_plys=args.load_plys, load_decoder=args.load_decoder, load_cameras=args.load_cameras,
         load_mask=not args.no_image_mask, load_depth=not args.no_depth_data, load_semantic=not args.no_load_semantic,
-        preload_cache=not args.no_preload_dataset_cache, configs=configs, extractor_configs=extractor_configs)
+        configs=configs, extractor_configs=extractor_configs)
     for dataset in datasets:
         dataset.save_cameras(os.path.join(args.destinations[0], "cameras.json"))
     torch.cuda.empty_cache()

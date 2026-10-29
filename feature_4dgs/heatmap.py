@@ -79,7 +79,6 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--destination", required=True, type=str)
     parser.add_argument("--device", default="cuda", type=str)
     parser.add_argument("--dataset_cache_device", default="cpu", type=str)
-    parser.add_argument("--no_preload_dataset_cache", action="store_true")
     parser.add_argument("-e", "--option_extractor", default=[], action="append", type=str)
     parser.add_argument("-t", "--time", required=True, type=int, help="Query timestep index into --sources (0-based).")
     parser.add_argument("-v", "--view", required=True, type=int, help="Query camera index within that timestep (0-based).")
@@ -95,8 +94,7 @@ if __name__ == "__main__":
     datasets, decoder = prepare_datasets_and_decoder(
         name=args.name, sources=args.sources, encoded_dim=args.encoded_dim,
         device=args.device, dataset_cache_device=args.dataset_cache_device,
-        trainable_camera=False, load_mask=False, load_depth=False,
-        preload_cache=not args.no_preload_dataset_cache, configs=extractor_configs,
+        trainable_camera=False, load_mask=False, load_depth=False, configs=extractor_configs,
     )
     decoder.init_semantic(datasets[0])
     decoder.to(args.device).eval()

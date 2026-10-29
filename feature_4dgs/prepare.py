@@ -32,7 +32,7 @@ def prepare_datasets(sources: List[str], device: str, trainable_camera: bool = F
 def prepare_datasets_and_decoder(
         name: str, sources: List[str], encoded_dim: int, device: str, dataset_cache_device: str = None,
         trainable_camera: bool = False, load_cameras: List[str] = None, load_mask=True, load_depth=True,
-        preload_cache: bool = True, configs={},
+        configs={},
 ) -> Tuple[SequenceFeatureCameraDataset, AbstractTrainableDecoder]:
     """Prepare a :class:`SequenceFeatureCameraDataset` and a shared decoder.
 
@@ -49,8 +49,6 @@ def prepare_datasets_and_decoder(
         name=name, encoded_dim=encoded_dim, **configs
     )
     datasets = SequenceFeatureCameraDataset(cameras_list=cameras_list, extractor=extractor, cache_device=dataset_cache_device).to(device)
-    if preload_cache:
-        datasets.preload_cache()
     return datasets, decoder
 
 

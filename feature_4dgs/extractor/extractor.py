@@ -12,7 +12,13 @@ class AbstractSequenceFeatureExtractor(AbstractFeatureExtractor):
     The default :meth:`extract_sequence_all` simply dispatches to
     :meth:`extract_all` for each timestep; subclasses may override it to
     perform cross-timestep batching, caching or scheduling.
+
+    Set :attr:`require_preload` to ``True`` when per-image
+    :meth:`__call__` is not supported and all features must be produced by
+    :meth:`extract_sequence_all`.
     """
+
+    require_preload: bool = False
 
     def extract_sequence_all(self, sequences: Iterable[Iterable[torch.Tensor]]) -> Iterator[Iterator[torch.Tensor]]:
         for sequence in sequences:

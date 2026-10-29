@@ -46,6 +46,8 @@ class SequenceFeatureCameraDataset(Sequence[FeatureCameraDataset]):
         return len(self.datasets)
 
     def __getitem__(self, idx) -> FeatureCameraDataset:
+        if hasattr(self, 'extractor') and self.extractor.require_preload:
+            self.preload_cache()
         return self.datasets[idx]
 
     @property
