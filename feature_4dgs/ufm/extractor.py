@@ -1,7 +1,10 @@
 from collections.abc import Iterable, Iterator
 
+import contextlib
+
 import torch
 import torch.nn.functional as F
+from uniception.models.encoders import ViTEncoderInput
 from uniception.models.info_sharing.base import MultiViewTransformerInput
 
 from feature_3dgs.uniception import UniCeptionExtractor
@@ -15,9 +18,9 @@ class UFMSequenceExtractor(AbstractSequenceFeatureExtractor):
     is paired with the same-index view of frame 1 and passed through
     ``info_sharing``. Both frames must contain the same number of views.
 
-    The yielded map is the final info-sharing feature of that view,
-    ``(dim, H / patch, W / patch)``. ``dim`` is 768 for the ViT-L UFM
-    checkpoints, 1024 for DINOv2-L init, and 1536 for DINOv2-G init.
+    Each view's map is the four tensors one info-sharing pass feeds to the DPT
+    head, concatenated on the channel axis: the encoder feature, the two
+    intermediate maps, and the final map.
     """
 
     require_preload = True
@@ -33,7 +36,7 @@ class UFMSequenceExtractor(AbstractSequenceFeatureExtractor):
         self.info_sharing.eval()
         self.patch_size = encoder.patch_size
         self.resolutions = encoder.resolutions
-        self._feature_dim = int(info_sharing.dim)
+        self._feature_dim = int(encoder.feature_dim) + 3 * int(info_sharing.dim)
 
     @property
     def feature_dim(self) -> int:
@@ -47,35 +50,39 @@ class UFMSequenceExtractor(AbstractSequenceFeatureExtractor):
 
     @torch.no_grad()
     def encode_image_pairs(self, image0: torch.Tensor, image1: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        """Encode two images and pass the features through info sharing.
+        """Encode both images in one batch, then one info-sharing pass.
 
-        ``uniflowmatch/models/ufm.py`` ``UniFlowMatch.forward``: ``_encode_image_pairs``
-        then ``info_sharing`` on the last encoder maps. Returns the two views of
-        ``final_info_sharing_multi_view_feat``.
+        Same order as ``UniFlowMatch.forward``: ``_encode_image_pairs`` concatenates
+        the pair, and the DPT list is the encoder map, two intermediate maps, and
+        the final map. Channels are concatenated and the batch dimension is removed.
         """
-        # UniCeptionExtractor is feat_list[-1] from _encode_image_pairs, with the batch dim removed.
-        feat0 = self.encoder(image0).unsqueeze(0)
-        feat1 = self.encoder(image1).unsqueeze(0)
-        # _encode_image_pairs raises "Unequal Image sizes are not supported now".
-        # Resize view 2 onto view 1 so the pair still runs.
-        if feat1.shape[-2:] != feat0.shape[-2:]:
-            feat1 = F.interpolate(feat1, size=feat0.shape[-2:], mode="bilinear", align_corners=False)
-        # feature_3dgs/vggt/extractor.py VGGTExtractor.run_aggregator. Autocast follows the feature device.
-        device = feat0.device
-        dtype = (
-            torch.bfloat16
-            if device.type == "cuda"
-            and torch.cuda.get_device_capability(device)[0] >= 8
-            else torch.float16
-        )
-        with torch.amp.autocast(device.type, dtype=dtype):
-            # UniFlowMatch.forward: Pass the features through the info_sharing.
-            final, _intermediate = self.info_sharing(MultiViewTransformerInput(features=[feat0, feat1]))
-        # info_sharing_outputs["1"][-1] and ["2"][-1].
-        return (
-            final.features[0][0].float().contiguous(),
-            final.features[1][0].float().contiguous(),
-        )
+        prepared0 = self.encoder.prepare(image0)
+        prepared1 = self.encoder.prepare(image1)
+        if prepared1.shape[-2:] != prepared0.shape[-2:]:
+            prepared1 = F.interpolate(prepared1, size=prepared0.shape[-2:], mode="bilinear", align_corners=False, antialias=True)
+        prepared = torch.cat((prepared0, prepared1), dim=0)
+        if prepared.is_cuda:
+            context = torch.autocast("cuda", dtype=torch.bfloat16)
+        else:
+            context = contextlib.nullcontext()
+        with context:
+            layers = self.encoder.encoder(ViTEncoderInput(
+                image=prepared,
+                data_norm_type=self.encoder.encoder.data_norm_type,
+            ))
+            feat0, feat1 = layers[-1].features.chunk(2, dim=0)
+            final, intermediate = self.info_sharing(MultiViewTransformerInput(features=[feat0, feat1]))
+
+        def pack(view: int, encoded: torch.Tensor) -> torch.Tensor:
+            maps = (
+                encoded,
+                intermediate[0].features[view],
+                intermediate[1].features[view],
+                final.features[view],
+            )
+            return torch.cat([item[0].float() for item in maps], dim=0).contiguous()
+
+        return pack(0, feat0), pack(1, feat1)
 
     @torch.no_grad()
     def extract_sequence_all(self, sequences: Iterable[Iterable[torch.Tensor]]) -> Iterator[Iterator[torch.Tensor]]:
