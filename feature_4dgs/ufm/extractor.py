@@ -60,14 +60,15 @@ class UFMSequenceExtractor(AbstractSequenceFeatureExtractor):
         # Resize view 2 onto view 1 so the pair still runs.
         if feat1.shape[-2:] != feat0.shape[-2:]:
             feat1 = F.interpolate(feat1, size=feat0.shape[-2:], mode="bilinear", align_corners=False)
-        # feature_3dgs/vggt/extractor.py VGGTExtractor.run_aggregator.
+        # feature_3dgs/vggt/extractor.py VGGTExtractor.run_aggregator. Autocast follows the feature device.
         device = feat0.device
         dtype = (
             torch.bfloat16
-            if device.type == "cuda" and torch.cuda.get_device_capability(device)[0] >= 8
+            if device.type == "cuda"
+            and torch.cuda.get_device_capability(device)[0] >= 8
             else torch.float16
         )
-        with torch.amp.autocast("cuda", dtype=dtype):
+        with torch.amp.autocast(device.type, dtype=dtype):
             # UniFlowMatch.forward: Pass the features through the info_sharing.
             final, _intermediate = self.info_sharing(MultiViewTransformerInput(features=[feat0, feat1]))
         # info_sharing_outputs["1"][-1] and ["2"][-1].
